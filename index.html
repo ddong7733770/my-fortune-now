@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>내 운세 지금은 - 지금 이 순간 나의 기세</title>
+  
+  <!-- Tailwind CSS CDN (추가 패키지 설치 없이 즉시 동작) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              gold: '#F59E0B',
+              purple: '#8B5CF6',
+              dark: '#0F172A',
+              card: '#1E293B'
+            }
+          },
+          animation: {
+            'scan': 'scan 1.5s ease-in-out infinite alternate',
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'spin-clock': 'spin 0.6s cubic-bezier(0.4, 0, 0.2, 1) infinite'
+          },
+          keyframes: {
+            scan: {
+              '0%': { transform: 'translateY(-100%)' },
+              '100%': { transform: 'translateY(100%)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 커스텀 스크롤바 & 터치 하이라이트 방지 */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    }
+    
+    /* 레이저 스캔 빔 라인 */
+    .laser-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #10B981, #34D399, #10B981, transparent);
+      box-shadow: 0 0 15px #10B981, 0 0 30px #34D399;
+      animation: laserScan 1.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes laserScan {
+      0% { top: 5%; opacity: 0.8; }
+      100% { top: 92%; opacity: 1; }
+    }
+
+    /* 토스트 팝업 트랜지션 */
+    .toast-enter {
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease-out;
+    }
+    .toast-show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-purple-500 selection:text-white">
+
+  <!-- ===============================
+       모바일 화면 래퍼 (PC 접속 시 중앙 정렬 스마트폰 뷰)
+       =============================== -->
+  <div class="w-full max-w-md mx-auto flex-1 flex flex-col bg-slate-900 border-x border-slate-800 shadow-2xl relative">
+
+    <!-- 1. 헤더 영역 -->
+    <header class="p-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur sticky top-0 z-30 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="text-2xl animate-pulse">🔮</span>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-amber-400 via-purple-400 to-indigo-300 bg-clip-text text-transparent">
+            내 운세 지금은
+          </h1>
+          <p class="text-[10px] text-slate-400 tracking-wider">지금 이 순간 나의 기세 분석기</p>
+        </div>
+      </div>
+      
+      <!-- 사운드 토글 버튼 (Web Audio API 사용, 비용 0원) -->
+      <button id="soundToggleBtn" onclick="toggleSound()" class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 text-xs flex items-center gap-1.5 border border-slate-700 hover:bg-slate-700 transition">
+        <i id="soundIcon" class="fas fa-volume-up text-amber-400"></i>
+        <span id="soundText" class="text-[11px]">효과음 ON</span>
+      </button>
+    </header>
+
+    <!-- [광고 영역 1] 상단 배너 (320x50 규격 최적화) -->
+    <div class="mx-4 mt-3 bg-slate-800/60 border border-dashed border-slate-700 rounded-lg p-2 flex items-center justify-center text-center text-xs text-slate-400">
+      <div class="flex items-center gap-2">
+        <span class="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-mono">AD</span>
+        <span>스마트한 직장인을 위한 혜택 (광고 제휴 영역)</span>
+      </div>
+      <!-- 실제 구글 애드센스 / 카카오 애드핏 코드 삽입 위치 -->
+      <!-- <ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px" ...></ins> -->
+    </div>
+
+    <!-- 2. 메인 컨텐츠 영역 -->
+    <main class="p-4 flex-1 flex flex-col justify-center space-y-5">
+
+      <!-- A. 실시간 아날로그 시계 + 디지털 타이머 -->
+      <section class="bg-slate-800/50 border border-slate-700/80 rounded-2xl p-5 flex flex-col items-center shadow-lg relative overflow-hidden">
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-purple-500/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-12 -left-12 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl"></div>
+
+        <div class="flex items-center justify-end w-full mb-3 text-xs text-slate-400 font-medium">
+          <span class="text-slate-400 font-mono" id="currentDateStr">2026.10.10 (토)</span>
+        </div>
+
+        <!-- 캔버스 아날로그 시계 -->
+        <div class="relative w-48 h-48 my-1 flex items-center justify-center">
+          <canvas id="clockCanvas" width="200" height="200" class="drop-shadow-md"></canvas>
+          <!-- 중앙 보석 장식 -->
+          <div class="absolute w-3 h-3 bg-amber-400 rounded-full shadow-lg border-2 border-slate-900 pointer-events-none"></div>
+        </div>
+
+        <!-- 실시간 디지털 시계 (초 단위까지 표시) -->
+        <div class="mt-2 text-center">
+          <div id="digitalClock" class="font-mono text-2xl font-black tracking-widest text-amber-300 drop-shadow">
+            17:52:04
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">
+            운세는 연월일시에 따라 달라집니다.
+          </p>
+        </div>
+      </section>
+
+      <!-- B. 사진 촬영 & 사진첩 가져오기 영역 -->
+      <section class="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <i class="fas fa-camera text-purple-400"></i>
+            지금 내 상태로 운세 확인하기(선택)
+          </label>
+          <span class="text-[10px] text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-full border border-purple-800/50">
+            얼굴 & 배경 기운 감지
+          </span>
+        </div>
+
+        <!-- 사진 미선택 시 업로드 버튼들 -->
+        <div id="photoUploadBox" class="flex gap-2">
+          <!-- 1) 직접 촬영 -->
+          <label class="flex-1 cursor-pointer bg-slate-800 hover:bg-slate-700/80 border border-slate-600/80 rounded-lg py-2.5 px-3 flex items-center justify-center gap-2 text-xs text-slate-200 transition">
+            <i class="fas fa-camera text-emerald-400"></i>
+            <span>지금 촬영</span>
+            <input type="file" id="cameraInput" accept="image/*" capture="user" class="hidden" onchange="handleImageSelected(event)">
+          </label>
+          <!-- 2) 사진첩 선택 -->
+          <label class="flex-1 cursor-pointer bg-slate-800 hover:bg-slate-700/80 border border-slate-600/80 rounded-lg py-2.5 px-3 flex items-center justify-center gap-2 text-xs text-slate-200 transition">
+            <i class="fas fa-images text-indigo-400"></i>
+            <span>사진첩 선택</span>
+            <input type="file" id="albumInput" accept="image/*" class="hidden" onchange="handleImageSelected(event)">
+          </label>
+        </div>
+
+        <!-- 사진 선택 완료 시 미리보기 카드 -->
+        <div id="photoPreviewBox" class="hidden flex items-center justify-between bg-slate-900 border border-purple-500/40 rounded-lg p-2.5 mt-1">
+          <div class="flex items-center space-x-3">
+            <img id="previewImg" src="" alt="미리보기" class="w-12 h-12 object-cover rounded-md border border-slate-700">
+            <div>
+              <p class="text-xs font-semibold text-slate-200 flex items-center gap-1">
+                <i class="fas fa-check-circle text-emerald-400"></i> 피사체 장착 완료
+              </p>
+              <p class="text-[10px] text-slate-400">인물 윤곽 및 배경 풍수 분석 대기중</p>
+            </div>
+          </div>
+          <button onclick="removeSelectedImage()" class="text-slate-400 hover:text-rose-400 p-2 text-sm transition">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- C. 핵심 액션: 운세 확인하기 버튼 -->
+      <section>
+        <button id="checkFortuneBtn" onclick="startFortuneAnalysis()" class="w-full py-4 rounded-xl font-black text-lg bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:via-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-900/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5">
+          <i class="fas fa-sparkles text-amber-300"></i>
+          <span>지금 이 순간 운세 확인하기</span>
+          <i class="fas fa-arrow-right text-xs opacity-75"></i>
+        </button>
+        <p class="text-[11px] text-center text-slate-400 mt-2">
+          당신의 행운의 시간을 잡아보세요!
+        </p>
+      </section>
+
+    </main>
+
+    <!-- 3. 푸터 영역 -->
+    <footer class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-400">
+      <p>© 2026 내 운세 지금은 | 매 순간 당신의 기세를 응원합니다</p>
+    </footer>
+
+  </div>
+
+  <!-- ========================================================
+       모달 1: 3초 인물 & 배경 스캐너 연출 (느낌만 반영, 비용 0원)
+       ======================================================== -->
+  <div id="scanModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 hidden">
+    <div class="w-full max-w-sm flex flex-col items-center text-center">
+      
+      <!-- 스캐너 뷰파인더 박스 -->
+      <div class="relative w-64 h-64 border-2 border-emerald-500/70 rounded-2xl overflow-hidden bg-slate-900/80 shadow-[0_0_30px_rgba(16,185,129,0.3)] flex items-center justify-center mb-6">
+        
+        <!-- 레이저 라인 -->
+        <div class="laser-line"></div>
+
+        <!-- 뷰파인더 코너 모서리 장식 -->
+        <div class="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-emerald-400"></div>
+        <div class="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-emerald-400"></div>
+        <div class="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-emerald-400"></div>
+        <div class="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-emerald-400"></div>
+
+        <!-- 업로드된 사진이 있으면 배경에 배치, 없으면 실시간 시계 홀로그램 -->
+        <img id="scanPreviewImg" src="" class="hidden absolute inset-0 w-full h-full object-cover opacity-60">
+        
+        <!-- 인물 얼굴 타깃팅 프레임 (가상 얼굴 트래킹 느낌) -->
+        <div id="faceTargetFrame" class="absolute w-24 h-24 border border-dashed border-amber-400/90 rounded-lg flex items-center justify-center animate-pulse-fast">
+          <span class="text-[9px] text-amber-300 font-mono bg-slate-950/80 px-1 py-0.5 rounded -mt-24">
+            [TARGET: FACE]
+          </span>
+        </div>
+
+        <!-- 배경 기운 그리드 라인 -->
+        <div class="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] opacity-30 pointer-events-none"></div>
+
+        <!-- 중앙 타임코드 펄스 -->
+        <div class="z-10 text-center">
+          <div id="scanSecondsText" class="font-mono text-3xl font-black text-emerald-400 tracking-wider">
+            3s
+          </div>
+          <div class="text-[10px] font-mono text-emerald-300 mt-1 uppercase tracking-widest">
+            AURA SCANNING...
+          </div>
+        </div>
+      </div>
+
+      <!-- 동적 분석 멘트 브리핑 (0.8초마다 변경) -->
+      <div class="min-h-[60px] flex flex-col items-center justify-center space-y-1">
+        <p id="scanStepTitle" class="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+          <i class="fas fa-spinner fa-spin"></i> 피사체 인물 윤곽 분석 중...
+        </p>
+        <p id="scanStepDesc" class="text-xs text-slate-400 font-mono">
+          얼굴 표정 에너지 및 이목구비 기운 주파수 추출 (92%)
+        </p>
+      </div>
+
+      <!-- 프로그레스 바 -->
+      <div class="w-56 h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden border border-slate-700">
+        <div id="scanProgressBar" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-purple-500 w-0 transition-all duration-300"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       모달 2: 운세 결과 화면
+       ======================================================== -->
+  <div id="resultModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md overflow-y-auto hidden">
+    <div class="w-full max-w-md mx-auto min-h-screen flex flex-col p-4 bg-slate-900 border-x border-slate-800 shadow-2xl">
+      
+      <!-- 상단 네비게이션 -->
+      <div class="flex items-center justify-between py-3 border-b border-slate-800">
+        <button onclick="closeResultModal()" class="text-slate-400 hover:text-white text-sm flex items-center gap-1.5 transition">
+          <i class="fas fa-arrow-left"></i>
+          <span>다시 뽑기</span>
+        </button>
+        <span class="text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded-full">
+          분석 완료
+        </span>
+      </div>
+
+      <!-- 운세 결과 메인 카드 -->
+      <div class="flex-1 py-4 space-y-4">
+
+        <!-- A. 결과 타이틀 -->
+        <div class="text-center">
+          <h2 class="text-xl font-extrabold text-white mt-1">
+            지금 이 순간 나의 기세 결과
+          </h2>
+        </div>
+
+        <!-- B. 점수 & 별 10개 만점 기세 점수 -->
+        <div class="bg-gradient-to-b from-slate-800/90 to-slate-800/40 border border-purple-500/30 rounded-2xl p-5 text-center shadow-xl relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full blur-xl"></div>
+          
+          <p class="text-xs font-semibold text-slate-400">오늘의 종합 운세 점수</p>
+          <div class="flex items-baseline justify-center gap-1 mt-1">
+            <span id="resScore" class="text-5xl font-black bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 bg-clip-text text-transparent">
+              95
+            </span>
+            <span class="text-slate-400 font-bold text-sm">/ 100점</span>
+          </div>
+
+          <!-- 기세 점수 (별 10개 만점) -->
+          <div class="mt-3 pt-3 border-t border-slate-700/60">
+            <p class="text-xs text-slate-300 mb-1 flex items-center justify-center gap-1">
+              🔥 <span class="font-bold">지금 기세 지수</span> 
+              (<span id="resStarCountText" class="text-amber-400 font-bold">9</span>/10)
+            </p>
+            <div id="resStarsContainer" class="flex justify-center text-amber-400 text-sm tracking-wider">
+              ★★★★★★★★★☆
+            </div>
+            <p id="resVibeTitle" class="mt-2 text-sm font-bold text-purple-200 bg-purple-950/60 py-1 px-3 rounded-lg border border-purple-800/40 inline-block">
+              "부장님 말 끊고 아이디어 내도 통하는 기세!"
+            </p>
+          </div>
+        </div>
+
+        <!-- C. 상세 운세 내용 (1~3문장) -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-xl p-4 shadow">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg">📜</span>
+            <h3 class="font-bold text-sm text-slate-200">상세 운세 브리핑</h3>
+          </div>
+          <p id="resDetailedFortune" class="text-xs text-slate-300 leading-relaxed font-normal">
+            오전까지 묵혀두었던 답답함이 오후부터 시원하게 풀리는 흐름입니다. 고민 중이던 보고나 제안이 있다면 지금 바로 의견을 내보세요. 주변 사람들이 당신의 논리에 자연스럽게 고개를 끄덕이며 전폭적인 지지를 보낼 것입니다.
+          </p>
+        </div>
+
+        <!-- D. 행운의 컬러 (원형 칩 도형 UI) -->
+        <div class="bg-slate-800/70 border border-slate-700 rounded-xl p-4 shadow">
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="text-lg">🎨</span>
+            <h3 class="font-bold text-sm text-slate-200">지금 행운의 컬러</h3>
+          </div>
+          <div class="flex items-center space-x-3 bg-slate-900/80 p-3 rounded-lg border border-slate-700/60">
+            <!-- 원형 칩 도형 -->
+            <div id="resColorChip" class="w-9 h-9 rounded-full shadow-lg border-2 border-white/20 shrink-0" style="background-color: #005A36;"></div>
+            <div>
+              <p id="resColorName" class="text-xs font-bold text-white">딥 에메랄드 그린 (#005A36)</p>
+              <p id="resColorTip" class="text-[11px] text-slate-400 mt-0.5">차분한 집중력과 행운을 이끄는 색상. 펜, 텀블러, 스마트폰 배경에 곁들여보세요.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- E. 주변 인물 & 행동 주의사항 -->
+        <div class="bg-slate-800/70 border border-amber-500/30 rounded-xl p-4 shadow bg-amber-950/10">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-lg">⚠️</span>
+            <h3 class="font-bold text-sm text-amber-300">주변 인물 & 행동 주의사항</h3>
+          </div>
+          <p id="resCautionText" class="text-xs text-amber-100/90 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-amber-900/40">
+            👉 <strong>지금 [오른쪽 대각선]에 앉은 사람에게 주목하세요!</strong> 오늘 업무 힌트나 커피 한 잔의 힐링을 얻을 수 있습니다. 반면 <strong>[정면 맞은편]</strong> 인물과는 사소한 말실수가 생길 수 있으니 말을 한 템포 천천히 하세요.
+          </p>
+        </div>
+
+        <!-- F. 직장인 맞춤 서브 지표 3종 -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-slate-800/50 border border-slate-700 p-2.5 rounded-lg text-center">
+            <p class="text-[10px] text-slate-400">🏃 칼퇴 성공률</p>
+            <p id="resLeaveWorkScore" class="text-sm font-bold text-emerald-400 mt-1">96%</p>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-700 p-2.5 rounded-lg text-center">
+            <p class="text-[10px] text-slate-400">🍱 추천 메뉴</p>
+            <p id="resLunchMenu" class="text-xs font-bold text-amber-300 mt-1 truncate">아이스 바닐라라떼</p>
+          </div>
+          <div class="bg-slate-800/50 border border-slate-700 p-2.5 rounded-lg text-center">
+            <p class="text-[10px] text-slate-400">🍀 행운의 숫자</p>
+            <p id="resLuckyNumber" class="text-sm font-bold text-indigo-400 mt-1">77</p>
+          </div>
+        </div>
+
+        <!-- [광고 영역 2] 운세 결과 하단 배너 (300x250 규격 최적화) -->
+        <div class="bg-slate-800/60 border border-dashed border-slate-700 rounded-xl p-3 flex flex-col items-center justify-center text-center text-xs text-slate-400">
+          <span class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded font-mono mb-1">SPONSORED AD</span>
+          <p class="text-[11px] text-slate-300">오늘의 힐링 추천 상품 & 금융 혜택</p>
+          <div class="w-full h-24 bg-slate-900/50 rounded flex items-center justify-center text-slate-400 mt-2 text-[10px] border border-slate-800">
+            [구글 애드센스 / 카카오 애드핏 배너 연동 위치]
+          </div>
+        </div>
+
+        <!-- G. 공유하기 & 재도전 버튼 -->
+        <div class="space-y-2 pt-2">
+          <!-- 바이럴 공유하기 버튼 -->
+          <button onclick="shareFortune()" class="w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-teal-950/50 transition flex items-center justify-center gap-2">
+            <i class="fas fa-gift text-amber-300"></i>
+            <span>지인에게 기운 선물하기 (문구 복사)</span>
+          </button>
+          
+          <!-- 즉시 다시 확인 버튼 -->
+          <button onclick="closeResultModal()" class="w-full py-3 rounded-xl font-medium text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center justify-center gap-1.5">
+            <i class="fas fa-redo-alt text-amber-400"></i>
+            <span>초침 바뀜! 다른 타이밍으로 다시 보기</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 토스트 알림창 -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 toast-enter pointer-events-none">
+    <i class="fas fa-check-circle text-emerald-400"></i>
+    <span id="toastMsg">문구가 복사되었습니다!</span>
+  </div>
+
+  <!-- ========================================================
+       JavaScript 로직 (100% 브라우저 내장 동작, 무료 & 외부 서버 0원)
+       ======================================================== -->
+  <script>
+    /* ----------------------------------------------------
+       1. 전역 상태 및 사운드 효과 (Web Audio API)
+       ---------------------------------------------------- */
+    let selectedImageBase64 = null;
+    let isSoundOn = true;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    // 신스 비프음 재생 (외부 mp3 파일 다운로드 필요 없음)
+    function playBeep(freq = 440, duration = 0.08, type = 'sine') {
+      if (!isSoundOn) return;
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {
+        // 사운드 미지원 환경 조용히 처리
+      }
+    }
+
+    function toggleSound() {
+      isSoundOn = !isSoundOn;
+      const icon = document.getElementById('soundIcon');
+      const text = document.getElementById('soundText');
+      if (isSoundOn) {
+        icon.className = "fas fa-volume-up text-amber-400";
+        text.innerText = "효과음 ON";
+        showToast("효과음이 켜졌습니다 🔔");
+        playBeep(600, 0.1);
+      } else {
+        icon.className = "fas fa-volume-mute text-slate-500";
+        text.innerText = "효과음 OFF";
+        showToast("효과음이 꺼졌습니다 🔇");
+      }
+    }
+
+    /* ----------------------------------------------------
+       2. 동적 아날로그 시계 렌더링 (Canvas)
+       ---------------------------------------------------- */
+    const canvas = document.getElementById('clockCanvas');
+    const ctx = canvas.getContext('2d');
+    const radius = canvas.width / 2;
+    ctx.translate(radius, radius);
+
+    let isClockSpinning = false;
+    let spinAngleOffset = 0;
+
+    function drawClock() {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+      const milliseconds = now.getMilliseconds();
+
+      // 시계 배경 초기화
+      ctx.clearRect(-radius, -radius, canvas.width, canvas.height);
+
+      // 시계 외곽 다이얼
+      ctx.beginPath();
+      ctx.arc(0, 0, radius - 6, 0, 2 * Math.PI);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#334155';
+      ctx.stroke();
+
+      // 시간 눈금 표시 (12개)
+      for (let num = 0; num < 12; num++) {
+        const ang = (num * Math.PI) / 6;
+        ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.moveTo(0, -radius + 12);
+        ctx.lineTo(0, -radius + 20);
+        ctx.lineWidth = num % 3 === 0 ? 3 : 1.5;
+        ctx.strokeStyle = num % 3 === 0 ? '#f59e0b' : '#64748b';
+        ctx.stroke();
+        ctx.rotate(-ang);
+      }
+
+      // 회전 중일 때 보정
+      const offset = isClockSpinning ? spinAngleOffset : 0;
+
+      // 시침 계산 & 그리기
+      const hourPos = ((hours % 12) * Math.PI) / 6 + (minutes * Math.PI) / (6 * 60) + offset;
+      drawHand(hourPos, radius * 0.45, 4, '#cbd5e1');
+
+      // 분침 계산 & 그리기
+      const minutePos = (minutes * Math.PI) / 30 + (seconds * Math.PI) / (30 * 60) + offset * 1.5;
+      drawHand(minutePos, radius * 0.65, 2.5, '#93c5fd');
+
+      // 초침 계산 (부드러운 스위프) & 그리기
+      const secondPos = (seconds * Math.PI) / 30 + (milliseconds * Math.PI) / (30 * 1000) + offset * 3;
+      drawHand(secondPos, radius * 0.8, 1.5, '#f59e0b');
+
+      // 중앙 핀
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+
+      // 디지털 시계 텍스트 업데이트
+      const pad = (n) => String(n).padStart(2, '0');
+      document.getElementById('digitalClock').innerText = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+
+      if (isClockSpinning) {
+        spinAngleOffset += 0.25;
+      }
+
+      requestAnimationFrame(drawClock);
+    }
+
+    function drawHand(pos, length, width, color) {
+      ctx.beginPath();
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = color;
+      ctx.moveTo(0, 0);
+      ctx.rotate(pos);
+      ctx.lineTo(0, -length);
+      ctx.stroke();
+      ctx.rotate(-pos);
+    }
+
+    // 날짜 텍스트 업데이트
+    function updateDateString() {
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const dayName = days[now.getDay()];
+      document.getElementById('currentDateStr').innerText = `${y}.${m}.${d} (${dayName})`;
+    }
+
+    updateDateString();
+    drawClock();
+
+    /* ----------------------------------------------------
+       3. 사진 선택 & 미리보기 처리
+       ---------------------------------------------------- */
+    function handleImageSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        selectedImageBase64 = e.target.result;
+        document.getElementById('previewImg').src = selectedImageBase64;
+        document.getElementById('photoUploadBox').classList.add('hidden');
+        document.getElementById('photoPreviewBox').classList.remove('hidden');
+        showToast("사진이 등록되었습니다! 📸");
+        playBeep(520, 0.1);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeSelectedImage() {
+      selectedImageBase64 = null;
+      document.getElementById('previewImg').src = '';
+      document.getElementById('cameraInput').value = '';
+      document.getElementById('albumInput').value = '';
+      document.getElementById('photoUploadBox').classList.remove('hidden');
+      document.getElementById('photoPreviewBox').classList.add('hidden');
+      showToast("사진이 제거되었습니다");
+    }
+
+    /* ----------------------------------------------------
+       4. 3초 동적 스캐너 연출 (느낌만 반영, 비용 0원)
+       ---------------------------------------------------- */
+    let scanTimer = null;
+
+    function startFortuneAnalysis() {
+      const modal = document.getElementById('scanModal');
+      const scanPreviewImg = document.getElementById('scanPreviewImg');
+      const faceTargetFrame = document.getElementById('faceTargetFrame');
+      const stepTitle = document.getElementById('scanStepTitle');
+      const stepDesc = document.getElementById('scanStepDesc');
+      const secondsText = document.getElementById('scanSecondsText');
+      const progressBar = document.getElementById('scanProgressBar');
+
+      // 사진 여부에 따른 뷰파인더 세팅
+      if (selectedImageBase64) {
+        scanPreviewImg.src = selectedImageBase64;
+        scanPreviewImg.classList.remove('hidden');
+        faceTargetFrame.classList.remove('hidden');
+      } else {
+        scanPreviewImg.classList.add('hidden');
+        faceTargetFrame.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+      isClockSpinning = true; // 시계 바늘 고속 회전 연출 시작
+      playBeep(440, 0.15, 'triangle');
+
+      let elapsed = 0;
+      progressBar.style.width = '0%';
+      secondsText.innerText = '3s';
+
+      // 3초 카운트다운 및 단계별 문구 변화
+      scanTimer = setInterval(() => {
+        elapsed += 100;
+        const progressPercent = Math.min(100, Math.floor((elapsed / 3000) * 100));
+        progressBar.style.width = `${progressPercent}%`;
+
+        // 1초 단위 카운트다운
+        const remainingSec = Math.max(1, Math.ceil((3000 - elapsed) / 1000));
+        secondsText.innerText = `${remainingSec}s`;
+
+        // 단계별 시각적 멘트 변화 (인물/배경 중심 느낌 연출)
+        if (elapsed < 1000) {
+          stepTitle.innerHTML = `<i class="fas fa-user-circle fa-spin text-amber-400"></i> 피사체 인물 윤곽 감지 중...`;
+          stepDesc.innerText = `얼굴 표정 에너지 및 자신감 지수 추출 (88%)`;
+          if (elapsed % 300 === 0) playBeep(580, 0.05);
+        } else if (elapsed < 2000) {
+          stepTitle.innerHTML = `<i class="fas fa-radar fa-spin text-indigo-400"></i> 공간 배경 풍수 에너지 스캔 중...`;
+          stepDesc.innerText = `조명 톤, 주변 사물 기운, 환경 밸런스 분석 완료`;
+          if (elapsed % 300 === 0) playBeep(680, 0.05);
+        } else if (elapsed < 3000) {
+          stepTitle.innerHTML = `<i class="fas fa-clock fa-spin text-emerald-400"></i> 현재 일시초(초침)와 기운 동기화 중...`;
+          stepDesc.innerText = `찰나의 타이밍 코드와 피사체 오라(Aura) 융합 성공`;
+          if (elapsed % 300 === 0) playBeep(780, 0.05);
+        } else {
+          // 3초 완료 시
+          clearInterval(scanTimer);
+          isClockSpinning = false; // 시계 정상 속도로 복귀
+          modal.classList.add('hidden');
+          playBeep(880, 0.2, 'sawtooth');
+          generateAndShowFortune();
+        }
+      }, 100);
+    }
+
+    /* ----------------------------------------------------
+       5. 운세 데이터 풀 & 일시초 기반 알고리즘
+       ---------------------------------------------------- */
+    // 행운의 컬러 데이터셋 (원형 칩 도형용)
+    const luckyColors = [
+      { name: "딥 에메랄드 그린 (#005A36)", hex: "#005A36", tip: "차분한 집중력과 마음의 평화를 줍니다. 메모지나 텀블러에 곁들여보세요." },
+      { name: "로열 사파이어 블루 (#0F52BA)", hex: "#0F52BA", tip: "강력한 설득력과 이성적 판단을 돕는 색상. 셔츠나 시계, 펜 포인트로 제격입니다." },
+      { name: "썬셋 앰버 오렌지 (#FF7F11)", hex: "#FF7F11", tip: "친화력과 활기를 불어넣는 기운. 바탕화면이나 간식 패키지로 기분을 돋우세요." },
+      { name: "버건디 와인 레드 (#800020)", hex: "#800020", tip: "단호한 결단력과 주도권을 쥐어주는 색상. 중요한 회의에 자신감을 실어줍니다." },
+      { name: "샴페인 골드 (#D4AF37)", hex: "#D4AF37", tip: "재물운과 뜻밖의 보너스 기운을 당기는 색. 스마트폰 케이스에 골드 포인트를 추천합니다." },
+      { name: "미스틱 바이올렛 (#7209B7)", hex: "#7209B7", tip: "직관력과 창의적 아이디어가 번뜩이게 돕는 신비로운 색상입니다." },
+      { name: "소프트 세이지 민트 (#98B4AA)", hex: "#98B4AA", tip: "오후 피로도를 낮추고 멘탈을 정화하는 힐링 컬러입니다." }
+    ];
+
+    // 난수 생성기 (Mulberry32 PRNG - 시드 기반 균일 난수)
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /* ----------------------------------------------------
+       점수대별 운세 데이터셋 (0~9 / 10~50 / 51~89 / 90~100)
+       ---------------------------------------------------- */
+    const tieredFortunes = {
+      // 1) 0~9점 : 극단적 주의 구간 (주의사항·지시사항 대폭 증가)
+      extremeLow: {
+        stars: 1,
+        vibes: [
+          "숨만 쉬어도 본전인 절대 방어의 기세",
+          "레이더망을 피하는 스텔스 잠수 기세",
+          "돌다리도 백 번 두드려야 할 살얼음판 기세"
+        ],
+        fortunes: [
+          "새로운 일을 벌이거나 적극적으로 의견을 내는 것은 절대 금물입니다. 오늘은 사소한 오해나 트집이 눈덩이처럼 불어날 수 있으니, 최대한 눈에 띄지 않게 조용히 현상을 유지하는 것이 최선의 생존 전략입니다. 모든 중요 결정과 결재는 내일로 미루세요.",
+          "주변의 사소한 불씨가 당신에게 튈 위험이 있는 날입니다. 동료의 넋두리나 불평에 맞장구치지 마시고 가볍게 넘기세요. 업무 처리는 완벽보다 '실수 방지'에 초점을 맞추고, 불필요한 외출이나 미팅은 최소화해야 안전합니다.",
+          "예상치 못한 돌발 변수와 지적에 직면할 수 있으니 멘탈 방어막을 단단히 세우세요. 오늘은 오직 정해진 루틴 업무만 조용히 끝마치고, 퇴근 알람이 울리면 뒤도 돌아보지 않고 퇴근하는 것이 가장 현명합니다."
+        ],
+        cautions: [
+          "⚠️ [긴급 지시사항 4계명]<br>1) 지금 [정면] 상사의 시선 범위에서 즉시 벗어나세요.<br>2) 회의 중 먼저 입 열지 말고 조용히 고개만 끄덕이세요.<br>3) 업무 메일 수신자/참조자를 최소 3회 이상 재확인하세요.<br>4) 점심은 [왼쪽] 동료의 뒤에 바짝 붙어 조용히 이동하세요.",
+          "⚠️ [생존 모드 긴급 행동 수칙]<br>1) 오늘 결재 요청이나 기안서 제출은 내일 이후로 보류하세요.<br>2) 지금 [대각선 맞은편] 인물과의 단독 대면을 피하세요.<br>3) 탕비실/복도에서 사적인 잡담에 절대 끼지 마세요.<br>4) 퇴근 시간 5분 전부터 조용히 퇴근 준비를 마치세요."
+        ]
+      },
+
+      // 2) 10~50점 : 좋지 않은 운세 구간 (걱정·주의 위주)
+      low: {
+        vibes: [
+          "돌다리도 두드려보고 건널 신중한 기세",
+          "오후의 고비를 차분히 버텨낼 인내의 기세",
+          "감정 조절과 포커페이스가 필요한 기세",
+          "실수 방어막을 120% 가동해야 할 기세"
+        ],
+        fortunes: [
+          "업무 집중력이 흐트러지기 쉽고 예상치 못한 잔업이나 돌발 요청이 발생할 수 있는 흐름입니다. 충동적인 판단이나 성급한 결재 요청은 피하시고, 확인되지 않은 소문에는 귀를 닫으세요. 차분하게 메모하며 우선순위가 높은 일부터 하나씩 처리하는 것이 이롭습니다.",
+          "사소한 일에 감정이 소모되거나 피로감이 몰려올 수 있으니 무리한 일정 소화는 자제하세요. 동료와의 커뮤니케이션에서 뉘앙스 차이로 오해가 생기지 않도록 쿠션어를 적극 활용해야 합니다. 오후에는 시원한 물을 자주 마시며 멘탈을 관리하세요.",
+          "업무상 책임 소재가 불분명한 일은 혼자 떠안지 말고 반드시 상사와 상의 후 진행하세요. 급하게 서두를수록 오타나 누락이 생기기 쉬우니 한 템포 천천히 호흡을 가다듬는 지혜가 필요합니다.",
+          "사무실 공기가 다소 무겁게 느껴질 수 있지만 조급해할 필요는 없습니다. 내 몫의 업무만 묵묵히 처리하며 에너지를 비축하세요. 저녁 약속보다는 일찍 귀가하여 충분한 휴식을 취하는 편이 유리합니다."
+        ],
+        cautions: [
+          "⚠️ [행동 주의] 지금 [오른쪽] 인물의 돌발 질문에 즉답하지 말고 '확인 후 말씀드리겠습니다'로 대응하세요. [정면] 맞은편 사람과의 대화에서는 감정을 빼고 팩트만 전달해야 오해를 막습니다.",
+          "⚠️ [실수 방지 주의] 오후 2~4시 사이 슬랙이나 메신저 메시지를 전송할 때 대화방을 반드시 재확인하세요. [왼쪽 대각선] 인물의 심기가 예민할 수 있으니 무리한 부탁은 내일로 미루세요.",
+          "⚠️ [대인관계 주의] [정면] 상사나 동료와 3초 이상 눈을 마주치지 마세요. 불필요한 추가 업무가 배정될 위험이 있습니다. 대신 [왼쪽] 동료에게 도움을 청하면 무난히 해결됩니다.",
+          "⚠️ [감정 관리 주의] 사소한 피드백에 일희일비하지 마세요. 지금 [뒤편]에서 들려오는 이야기에 귀 기울이지 말고 내 모니터 화면에만 시선을 고정하는 것이 안전합니다."
+        ]
+      },
+
+      // 3) 51~89점 : 점수가 오를수록 좋은 내용 (평온·상승세 구간)
+      midHigh: {
+        vibesMid: [
+          "차분하게 실속 챙기는 탄탄한 기세",
+          "기본 루틴만 지켜도 성과 나는 안정의 기세"
+        ],
+        vibesHigh: [
+          "내 의견에 자연스럽게 힘이 실리는 상승세의 기세",
+          "동료들의 신뢰를 한 몸에 받는 든든한 기세",
+          "회의실 공기를 내 편으로 만들 주도적 기세"
+        ],
+        fortunesMid: [
+          "전반적으로 막힘없이 순탄하게 풀려나가는 편안한 날입니다. 기존에 해오던 루틴대로 차분히 처리하면 정시 퇴근에 무리가 없습니다. 동료들과의 협업에서도 잡음 없이 매끄러운 소통이 이어질 것입니다.",
+          "큰 변수 없이 기대했던 일정대로 업무가 착착 마무리되는 흐름입니다. 오후에는 여유가 생기니 밀린 문서 정리나 개인적인 재정비를 하기에 알맞습니다. 작은 성취감을 느끼며 산뜻하게 하루를 채워보세요."
+        ],
+        fortunesHigh: [
+          "오전부터 긍정적인 활력이 돌며 당신의 감각과 논리가 설득력을 얻는 날입니다. 마음속에 품어두었던 제안이나 기획이 있다면 자신 있게 의견을 꺼내보세요. 협조적인 분위기 속에서 순조롭게 결재와 지지를 이끌어낼 수 있습니다.",
+          "업무 순발력과 대처 능력이 돋보여 동료와 상사의 칭찬을 부르는 기운입니다. 묵묵히 해온 노력이 빛을 발하니 자신감을 가지셔도 좋습니다. 퇴근길에는 소소한 보상으로 기분을 만끽하세요.",
+          "당신의 아이디어가 팀의 분위기를 환하게 밝혀줍니다. 주변 동료들과의 호흡이 매우 좋아 혼자 하기 벅찼던 일도 금방 해결됩니다. 이 상승세를 타고 이번 주 남은 일정까지 순조롭게 풀릴 것입니다."
+        ],
+        cautions: [
+          "👉 지금 [오른쪽 대각선]에 앉은 사람에게 가벼운 칭찬을 건네보세요. 오늘의 업무 협조와 긍정적인 시너지를 이끌어낼 수 있습니다.",
+          "👉 지금 [왼쪽 바로 옆] 동료와 오후 티타임을 가져보세요. 뜻밖의 유용한 정보나 기분 좋은 소식을 나눌 수 있습니다.",
+          "👉 지금 [가장 가까운 거리]에 있는 사람에게 미소를 지어보세요. 원활한 소통과 회의 분위기 반전의 열쇠가 됩니다.",
+          "👉 지금 [정면] 인물에게 감사의 인사를 한마디 건네보세요. 기대 이상의 든든한 지원군이 되어줄 것입니다."
+        ]
+      },
+
+      // 4) 90~100점 : 대길 최고조 구간 (좋은 내용 위주 & 자신감 극대화)
+      peak: {
+        vibes: [
+          "부장님도 기립박수 칠 파죽지세의 기세!",
+          "숨만 쉬어도 행운이 굴러들어올 무적의 기세!",
+          "전성기 포텐셜 폭발! 팀을 이끌어갈 슈퍼스타의 기세!",
+          "복권방으로 당장 직행해야 할 황금빛 기세!"
+        ],
+        fortunes: [
+          "오늘 당신의 감각과 행운의 지수는 최정점에 도달해 있습니다! 무엇을 시도하든 기대 이상의 찬사와 지지를 이끌어내며, 난이도 높은 과제도 술술 풀리는 마법 같은 날입니다. 미뤄왔던 중요 결재나 승인 요청이 있다면 지금 당장 진행하세요.",
+          "기세와 카리스마가 돋보여 주변 사람들을 자연스럽게 내 편으로 만드는 날입니다. 당신의 아이디어가 회의의 중심이 되고, 생각지 못한 깜짝 인정이나 기분 좋은 소식이 찾아올 기운입니다. 오늘 하루는 온전히 당신의 무대입니다!",
+          "당신의 긍정적인 에너지가 사무실 전체를 감싸는 최고의 타이밍입니다. 망설이던 일이 있다면 오늘 과감하게 첫발을 내디뎌보세요. 모든 조건과 타이밍이 당신을 향해 완벽하게 정렬되어 있습니다."
+        ],
+        cautions: [
+          "👉 [행운 극대화 행동] 망설일 이유가 전혀 없습니다! 지금 바로 당신의 기획안을 당당하게 제안하세요. [주변 모든 동료]가 당신을 지지할 준비가 되어 있습니다.",
+          "👉 [오늘의 필승 전략] 당신의 직관이 100% 정답입니다. 오늘은 [오른쪽/왼쪽] 모든 동료에게 자신감 넘치게 아이디어를 공유하며 분위기를 리드하세요.",
+          "👉 [기운 나눔] 오늘의 강력한 행운을 만끽하며 점심시간에 주변 사람들에게 커피 한 잔의 여유를 선물해 보세요. 베푼 것의 몇 배가 넘는 큰 복으로 돌아옵니다."
+        ]
+      }
+    };
+
+    const lunchMenus = ["아이스 바닐라라떼", "든든한 제육볶음", "시원한 김치찌개", "수제버거 세트", "초밥 & 우동", "샌드위치 & 샐러드", "매콤한 떡볶이", "갈비탕", "돈까스 정식"];
+
+    function generateAndShowFortune() {
+      const now = new Date();
+      
+      // 일시초를 기반으로 한 의사난수 시드 계산
+      const seed = now.getFullYear() * 1000000 + 
+                   (now.getMonth() + 1) * 10000 + 
+                   now.getDate() * 1000 + 
+                   now.getHours() * 100 + 
+                   now.getMinutes() * 10 + 
+                   now.getSeconds();
+
+      const photoBonus = selectedImageBase64 ? (selectedImageBase64.length % 997) : 0;
+      const combinedSeed = (seed + photoBonus) >>> 0;
+
+      // PRNG 초기화
+      const rng = mulberry32(combinedSeed);
+
+      // 1. 운세 점수: 0~100점 마름모꼴(삼각) 대칭 분포 (중앙 50점 근처가 가장 많고 0과 100은 드묾)
+      const u1 = rng();
+      const u2 = rng();
+      const score = Math.min(100, Math.max(0, Math.round((u1 + u2) * 50)));
+
+      // 점수 표시 및 색상 톤 조절
+      const scoreEl = document.getElementById('resScore');
+      scoreEl.innerText = score;
+      if (score < 20) {
+        scoreEl.className = "text-5xl font-black bg-gradient-to-r from-rose-400 via-orange-400 to-amber-400 bg-clip-text text-transparent";
+      } else if (score < 51) {
+        scoreEl.className = "text-5xl font-black bg-gradient-to-r from-amber-400 via-orange-400 to-amber-300 bg-clip-text text-transparent";
+      } else if (score < 90) {
+        scoreEl.className = "text-5xl font-black bg-gradient-to-r from-amber-300 via-amber-400 to-emerald-400 bg-clip-text text-transparent";
+      } else {
+        scoreEl.className = "text-5xl font-black bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]";
+      }
+
+      // 2. 점수대별 콘텐츠 매핑 (0~9 / 10~50 / 51~89 / 90~100)
+      let stars = 5;
+      let vibeTitle = "";
+      let fortuneDesc = "";
+      let cautionText = "";
+      let leaveWorkScore = 80;
+
+      if (score <= 9) {
+        // [0~9점: 극단적 주의 구간]
+        const tier = tieredFortunes.extremeLow;
+        stars = 1;
+        vibeTitle = tier.vibes[Math.floor(rng() * tier.vibes.length)];
+        fortuneDesc = tier.fortunes[Math.floor(rng() * tier.fortunes.length)];
+        cautionText = tier.cautions[Math.floor(rng() * tier.cautions.length)];
+        leaveWorkScore = 25 + Math.floor(rng() * 20); // 25~44%
+      } else if (score <= 50) {
+        // [10~50점: 좋지 않은 운세 구간 - 걱정/주의 위주]
+        const tier = tieredFortunes.low;
+        // 10~50점 별점 2~5개 비례
+        stars = 2 + Math.floor(((score - 10) / 40) * 3.9);
+        vibeTitle = tier.vibes[Math.floor(rng() * tier.vibes.length)];
+        fortuneDesc = tier.fortunes[Math.floor(rng() * tier.fortunes.length)];
+        cautionText = tier.cautions[Math.floor(rng() * tier.cautions.length)];
+        leaveWorkScore = 48 + Math.floor(rng() * 24); // 48~71%
+      } else if (score <= 89) {
+        // [51~89점: 점수가 높아질수록 좋은 내용 반영]
+        const tier = tieredFortunes.midHigh;
+        // 51~89점 별점 6~8개 비례
+        stars = 6 + Math.floor(((score - 51) / 38) * 2.9);
+        
+        if (score <= 69) {
+          // 51~69점: 평온·실속
+          vibeTitle = tier.vibesMid[Math.floor(rng() * tier.vibesMid.length)];
+          fortuneDesc = tier.fortunesMid[Math.floor(rng() * tier.fortunesMid.length)];
+        } else {
+          // 70~89점: 호조·상승세
+          vibeTitle = tier.vibesHigh[Math.floor(rng() * tier.vibesHigh.length)];
+          fortuneDesc = tier.fortunesHigh[Math.floor(rng() * tier.fortunesHigh.length)];
+        }
+        cautionText = tier.cautions[Math.floor(rng() * tier.cautions.length)];
+        leaveWorkScore = 75 + Math.floor(rng() * 18); // 75~92%
+      } else {
+        // [90~100점: 최고조 대길 구간 - 좋은 내용 위주]
+        const tier = tieredFortunes.peak;
+        stars = (score >= 96) ? 10 : 9;
+        vibeTitle = tier.vibes[Math.floor(rng() * tier.vibes.length)];
+        fortuneDesc = tier.fortunes[Math.floor(rng() * tier.fortunes.length)];
+        cautionText = tier.cautions[Math.floor(rng() * tier.cautions.length)];
+        leaveWorkScore = 95 + Math.floor(rng() * 6); // 95~100%
+      }
+
+      // 기세 별점 렌더링 (10개 만점)
+      document.getElementById('resStarCountText').innerText = stars;
+      let starsHtml = '';
+      for (let i = 0; i < 10; i++) {
+        starsHtml += (i < stars) ? '★' : '☆';
+      }
+      document.getElementById('resStarsContainer').innerText = starsHtml;
+      document.getElementById('resVibeTitle').innerText = `"${vibeTitle}"`;
+
+      // 상세 운세 및 주의사항 반영
+      document.getElementById('resDetailedFortune').innerText = fortuneDesc;
+      document.getElementById('resCautionText').innerHTML = cautionText;
+
+      // 5. 지금 행운의 컬러 (원형 칩 도형)
+      const colorObj = luckyColors[Math.floor(rng() * luckyColors.length)];
+      const colorChip = document.getElementById('resColorChip');
+      colorChip.style.backgroundColor = colorObj.hex;
+      colorChip.style.boxShadow = `0 0 15px ${colorObj.hex}88`;
+      document.getElementById('resColorName').innerText = colorObj.name;
+      document.getElementById('resColorTip').innerText = colorObj.tip;
+
+      // 7. 서브 지표들
+      document.getElementById('resLeaveWorkScore').innerText = `${leaveWorkScore}%`;
+      document.getElementById('resLunchMenu').innerText = lunchMenus[Math.floor(rng() * lunchMenus.length)];
+
+      // [수정사항 3] 🍀 행운의 숫자 (1~111 중 랜덤)
+      const luckyNumber = 1 + Math.floor(rng() * 111);
+      document.getElementById('resLuckyNumber').innerText = luckyNumber;
+
+      // 결과 모달 표시
+      document.getElementById('resultModal').classList.remove('hidden');
+    }
+
+    function closeResultModal() {
+      document.getElementById('resultModal').classList.add('hidden');
+    }
+
+    /* ----------------------------------------------------
+       6. 공유하기 (요청사항 100% 반영 바이럴 템플릿)
+       ---------------------------------------------------- */
+    function shareFortune() {
+      const adjectives = ["아끼는", "사랑하는", "좋아하는", "존경하는"];
+      const blessings = ["행운", "기운", "기세", "웃음", "행복", "기분", "재산"];
+
+      const randAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const randBless = blessings[Math.floor(Math.random() * blessings.length)];
+      const randScore = Math.floor(Math.random() * (100 - 70 + 1)) + 70; // 70~100점
+
+      const currentUrl = window.location.href.split('?')[0];
+
+      const shareText = `제가 ${randAdj} 당신에게 오늘의 ${randBless}을 ${randScore}점만큼 선물로 드려요! 🎁\n\n👉 내 운세 지금은 바로 확인하기 :\n${currentUrl}`;
+
+      // 모바일 웹 공유 API 우선 지원
+      if (navigator.share) {
+        navigator.share({
+          title: '내 운세 지금은',
+          text: shareText,
+          url: currentUrl
+        }).catch(() => {
+          copyToClipboard(shareText);
+        });
+      } else {
+        copyToClipboard(shareText);
+      }
+    }
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("공유 문구가 복사되었습니다! 카톡 등에 붙여넣어 보세요 💌");
+        }).catch(() => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast("공유 문구가 복사되었습니다! 카톡 등에 붙여넣어 보세요 💌");
+      } catch (err) {
+        alert("문구 복사에 실패했습니다. 직접 복사해 주세요:\n\n" + text);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    /* ----------------------------------------------------
+       7. 토스트 알림 헬퍼
+       ---------------------------------------------------- */
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.innerText = msg;
+
+      toast.classList.remove('toast-enter');
+      toast.classList.add('toast-show');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('toast-show');
+        toast.classList.add('toast-enter');
+      }, 2400);
+    }
+  </script>
+
+</body>
+</html>
